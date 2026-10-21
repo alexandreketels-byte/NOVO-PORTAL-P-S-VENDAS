@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal Pós-Vendas</title>
+<style>
+:root{
+  --bg:#0d1416; --panel:#131f21; --panel2:#0f191b; --line:#244744; --line2:#1b3836;
+  --txt:#e6efee; --mut:#8fa6a3; --acc:#14a39a; --acc2:#0f8179;
+  --ok:#3fb950; --warn:#e3b341; --bad:#f85149; --blue:#58a6ff; --purple:#b388ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+body{padding:0 0 40px}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .sp{flex:1}
+.chip{font-size:11px;padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.chip.on{color:var(--ok);border-color:#2b6b3a}
+main{padding:14px 16px;max-width:none}
+.card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;margin-bottom:14px}
+.card>.hd{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line2);font-weight:600;font-size:14px;cursor:default}
+.card>.hd .sub{font-weight:400;color:var(--mut);font-size:12px}
+.card>.bd{padding:12px 14px}
+.card.collapsed>.bd{display:none}
+.hint{color:var(--mut);font-size:12px;margin:0 0 8px}
+textarea,input[type=text],input[type=password],input[type=date],select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:6px 8px;font:inherit}
+textarea{width:100%;height:110px;background:#fff;color:#111;resize:vertical;font-family:Consolas,monospace;font-size:12px}
+input[type=date]{color-scheme:dark}
+select{max-width:230px}
+.btn{background:var(--acc);color:#fff;border:1px solid var(--acc2);border-radius:5px;padding:7px 14px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:filter .12s,transform .05s}
+.btn:hover{filter:brightness(1.12)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--txt);border-color:var(--line)}
+.btn.sm{padding:4px 10px;font-size:12px}
+.btn[disabled]{opacity:.55;cursor:wait}
+.btn .spin{display:none;width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+.btn.busy .spin{display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.row .sp{flex:1}
+.lbl{color:var(--mut);font-size:12px}
+#busca{width:100%;max-width:none}
+.tipos{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tipos button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:3px 11px;font:inherit;cursor:pointer}
+.tipos button b{margin-left:5px}
+.tipos button.act{border-color:var(--acc);background:#0f2c2b}
+.lote{display:none;gap:8px;align-items:center;margin-top:10px;padding:8px 10px;background:#0f2c2b;border:1px solid var(--acc2);border-radius:6px}
+.lote.show{display:flex;flex-wrap:wrap}
+.tblwrap{overflow:auto;max-height:calc(100vh - 160px);border:1px solid var(--line);border-radius:6px;margin-top:12px}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#14302f;z-index:2;white-space:nowrap;cursor:pointer;user-select:none;font-weight:600}
+th:hover{background:#18403e}
+th.nosort{cursor:default}
+tbody tr:hover td{background:rgba(20,163,154,.08)}
+tr.hoje td{background:rgba(63,185,80,.14)}
+td.ent{color:var(--ok);font-weight:600}
+td.atr{color:var(--bad);font-weight:600}
+td.msg{min-width:320px;max-width:520px;cursor:pointer}
+td.msg div{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+td.num{white-space:nowrap}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#2f6fed;color:#fff;margin-left:6px;vertical-align:middle}
+.tp{display:inline-block;padding:1px 9px;border-radius:99px;font-weight:700;font-size:11px;border:1px solid}
+.tp.SAC{color:#5fd0c8;border-color:#1f6f69;background:#0e2b29}
+.tp.DEVOLUCAO{color:#ffb86b;border-color:#8a5a22;background:#2d1f0d}
+.tp.GARANTIA{color:#c9a7ff;border-color:#5f3f96;background:#21173a}
+.tp.none{color:var(--mut);border-color:var(--line);border-style:dashed;font-weight:400}
+.pen{background:none;border:0;color:var(--mut);cursor:pointer;font-size:13px;padding:0 3px}
+.pen:hover{color:var(--acc)}
+.menu{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--acc2);border-radius:6px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:150px;display:none}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--txt);padding:6px 10px;font:inherit;cursor:pointer;border-radius:4px}
+.menu button:hover{background:#18403e}
+.menu .sep{height:1px;background:var(--line);margin:3px 0}
+.colmenu label{display:block;padding:3px 8px;cursor:pointer;white-space:nowrap}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:none;align-items:center;justify-content:center;padding:20px}
+.modalbg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--acc2);border-radius:8px;max-width:900px;width:100%;max-height:88vh;display:flex;flex-direction:column}
+.modal .mh{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.modal .mb{padding:12px 14px;overflow:auto}
+.modal .mh .sp{flex:1}
+.m{border-bottom:1px solid var(--line2);padding:8px 0}
+.m .who{font-weight:700}
+.m .when{color:var(--mut);margin-left:8px;font-size:12px}
+.m .t{white-space:pre-wrap;margin-top:3px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#0f2c2b;border:1px solid var(--acc);padding:9px 16px;border-radius:6px;z-index:80;display:none;max-width:90vw}
+#toast.err{background:#3a1416;border-color:var(--bad)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field input{width:100%}
+#login{position:fixed;inset:0;background:var(--bg);z-index:90;display:none;align-items:center;justify-content:center}
+#login .box{background:var(--panel);border:1px solid var(--acc2);border-radius:10px;padding:22px;width:320px}
+#login h2{margin:0 0 14px;font-size:16px}
+.file{display:none}
+.stat{display:flex;gap:18px;flex-wrap:wrap;color:var(--mut)}
+.stat b{color:var(--txt)}
+.empty{padding:30px;text-align:center;color:var(--mut)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📦 Portal Pós-Vendas</h1>
+  <span class="chip" id="modo">modo local</span>
+  <span class="sp"></span>
+  <span class="chip" id="quem"></span>
+  <button class="btn ghost sm" id="bCfg" title="Configurar conexão com o Apps Script">⚙ Conexão</button>
+</header>
+
+<main>
+
+<!-- ============ TABELA DINÂMICA ============ -->
+<section class="card collapsed" id="cardTD">
+  <div class="hd" onclick="this.parentElement.classList.toggle('collapsed')" style="cursor:pointer">
+    📊 Importar Tabela Dinâmica <span class="sub" id="tdInfo">—</span>
+  </div>
+  <div class="bd">
+    <p class="hint">Suba o arquivo extraído do sistema (<b>Dados para Tabela Dinâmica</b> — .xlsx, .xls ou .csv) ou cole aqui as linhas copiadas. O histórico é mantido: pedidos novos entram e, nos que já existem, só são atualizados os campos novos (principalmente a data em que o cliente recebeu). A data de recebimento nunca é apagada por uma importação.</p>
+    <input type="file" id="fTD" class="file" accept=".xlsx,.xls,.csv,.tsv,.txt">
+    <textarea id="taTD" placeholder="…ou cole aqui as linhas da Tabela Dinâmica (com o cabeçalho)" style="height:70px"></textarea>
+    <div class="row">
+      <button class="btn" id="bTDfile"><span class="spin"></span>📁 Escolher arquivo</button>
+      <button class="btn" id="bTDpaste"><span class="spin"></span>Importar texto colado</button>
+      <span class="lbl" id="tdMsg"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OCORRÊNCIAS ============ -->
+<section class="card">
+  <div class="hd">📋 Colar Ocorrências do SAC (texto) <span class="sub" id="ocInfo"></span></div>
+  <div class="bd">
+    <p class="hint">Cole aqui direto da tela do sistema (<b>Relatório de Ocorrências do SAC</b>, com as mensagens de cada pedido) ou use <b>Abrir relatório salvo (.html)</b> se salvou a página. Fica salvo até você processar um texto novo — e o <b>tipo</b> (SAC / DEVOLUÇÃO / GARANTIA) que você marcar continua mesmo reimportando.</p>
+    <textarea id="taOc" spellcheck="false"></textarea>
+    <input type="file" id="fOc" class="file" accept=".html,.htm,.txt,.tsv">
+    <div class="row">
+      <button class="btn" id="bProc"><span class="spin"></span>Processar texto</button>
+      <button class="btn" id="bSis"><span class="spin"></span>🔄 Buscar do sistema</button>
+      <button class="btn ghost" id="bOpen">📁 Abrir relatório salvo (.html)</button>
+    </div>
+
+    <div class="tipos" id="tipos"></div>
+
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="busca" placeholder="Buscar em todas as colunas…">
+    </div>
+    <div class="row">
+      <select id="fTransp"></select>
+      <select id="fLoja"></select>
+      <select id="fTipo"></select>
+      <select id="fStatus"></select>
+      <select id="fEnt"></select>
+      <span class="lbl">Entregue de</span><input type="date" id="fDe">
+      <span class="lbl">até</span><input type="date" id="fAte">
+      <button class="btn ghost sm" id="bLimpar">Limpar</button>
+      <span class="lbl" id="cnt"></span>
+      <span class="sp"></span>
+      <button class="btn" id="bCopP">📋 Copiar Pedidos</button>
+      <button class="btn" id="bCopN">📋 Copiar NFs</button>
+      <button class="btn" id="bXls">⬇ Baixar Excel</button>
+      <button class="btn" id="bCols">Colunas ▾</button>
+    </div>
+
+    <div class="lote" id="lote">
+      <b id="loteN">0</b> selecionado(s) — definir ocorrência como:
+      <button class="btn sm" data-lote="SAC">SAC</button>
+      <button class="btn sm" data-lote="DEVOLUÇÃO">DEVOLUÇÃO</button>
+      <button class="btn sm" data-lote="GARANTIA">GARANTIA</button>
+      <button class="btn ghost sm" data-lote="">Limpar tipo</button>
+      <button class="btn ghost sm" id="loteX">Desmarcar</button>
+    </div>
+
+    <div class="tblwrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+</main>
+
+<div class="menu" id="menuTipo"></div>
+<div class="menu colmenu" id="menuCols"></div>
+
+<div class="modalbg" id="mdMsg"><div class="modal">
+  <div class="mh"><span id="mdTitle"></span><span class="sp"></span><button class="btn ghost sm" onclick="closeModal('mdMsg')">Fechar</button></div>
+  <div class="mb" id="mdBody"></div>
+</div></div>
+
+<div class="modalbg" id="mdCfg"><div class="modal" style="max-width:520px">
+  <div class="mh">Conexão<span class="sp"></span><button class="btn ghost sm" onclick="closeModal('mdCfg')">Fechar</button></div>
+  <div class="mb">
+    <p class="hint">Cole a URL do Web App (Apps Script, termina em <code>/exec</code>). Em branco = modo local (dados só neste navegador).</p>
+    <div class="field"><label class="lbl">URL do Apps Script</label><input type="text" id="cfgUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+    <button class="btn" id="cfgSave">Salvar e entrar</button>
+    <button class="btn ghost" id="cfgSair">Sair (apagar PIN deste navegador)</button>
+  </div>
+</div></div>
+
+<div id="login"><div class="box">
+  <h2>Portal Pós-Vendas</h2>
+  <div class="field"><label class="lbl">Seu nome</label><input type="text" id="lgUser" placeholder="ex.: KETELS"></div>
+  <div class="field"><label class="lbl">PIN</label><input type="password" id="lgPin" inputmode="numeric"></div>
+  <button class="btn" id="lgOk" style="width:100%;justify-content:center"><span class="spin"></span>Entrar</button>
+  <p class="hint" id="lgErr" style="color:var(--bad);margin-top:10px"></p>
+</div></div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* =====================================================================
+   Portal Pós-Vendas
+   Chaves de localStorage com prefixo pv_ (mesmo domínio do GitHub Pages
+   é compartilhado com os outros portais).
+   ===================================================================== */
+'use strict';
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : v; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const TIPOS = ['SAC','DEVOLUÇÃO','GARANTIA'];
+const tpClass = t => t ? t.replace('Ç','C').replace('Ã','A') : 'none';
+const AUTORES = [['CAMILA L','#b388ff'],['VICTORIA','#f85149'],['KETELS','#e3b341'],['PALOMA','#3fb950'],['LUIZ','#58a6ff']];
+
+/* ---------- utilidades ---------- */
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const pad = n => String(n).padStart(2,'0');
+function parseDT(s){
+  const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/.exec(s || '');
+  return m ? new Date(+m[3], +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0)).getTime() : 0;
+}
+function fmtDate(d){ return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
+const todayStr = () => fmtDate(new Date());
+function toast(msg, err){
+  const t = $('toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', err ? 6000 : 3000);
+}
+function busy(btn, on){ btn.disabled = on; btn.classList.toggle('busy', on); }
+async function withBusy(btn, fn){
+  busy(btn, true);
+  await new Promise(r => setTimeout(r, 30)); // deixa o spinner aparecer antes do processamento
+  try{ return await fn(); } finally{ busy(btn, false); }
+}
+function closeModal(id){ $(id).classList.remove('show'); }
+function openModal(id){ $(id).classList.add('show'); }
+function decodeBuf(buf){
+  const u8 = new Uint8Array(buf);
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(u8); }
+  catch(e){ return new TextDecoder('windows-1252').decode(u8); }   // páginas salvas da Central vêm em windows-1252
+}
+
+/* =====================================================================
+   PARSER DAS OCORRÊNCIAS
+   ===================================================================== */
+const keyOf = o => o.pedido + '|' + o.dt;
+
+// 1) HTML da página (arquivo salvo ou colagem rica)
+function parseOcHTML(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const out = [];
+  const trs = doc.querySelectorAll('tr');
+  trs.forEach(tr => {
+    const tdPed = tr.querySelector(':scope > td.tdPedido');
+    if(!tdPed || !tr.querySelector(':scope > td.tdDataHora')) return;
+    const g = c => { const e = tr.querySelector(':scope > td.' + c); return e ? e.textContent.replace(/ /g,' ').trim() : ''; };
+    const pedido = g('tdPedido'); if(!/\d/.test(pedido)) return;
+    // Ocorrência: "Categoria<br>descrição"
+    let cat = '', desc = '';
+    const eo = tr.querySelector(':scope > td.tdOcorrencia');
+    if(eo){
+      const clone = eo.cloneNode(true);
+      clone.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
+      const parts = clone.textContent.replace(/ /g,' ').split('\n');
+      cat = (parts.shift() || '').trim(); desc = parts.join('\n').trim();
+    }
+    const o = { dt:g('tdDataHora'), loja:g('tdLoja'), pedido, nf:g('tdNF'), cliente:g('tdCliente'),
+      transp:g('tdTransp'), contato:g('tdContato'), tel:g('tdTel'), ocorrencia:cat, descricao:desc,
+      status:g('tdStatus'), msgs:[] };
+    o.key = keyOf(o);
+    // linha de mensagens: é a próxima <tr> irmã (TR_MSGS_n)
+    let nx = tr.nextElementSibling;
+    while(nx && nx.tagName === 'TR' && !nx.querySelector('td.tdDataHoraMsg') && !nx.id.startsWith('TR_MSGS')){
+      if(nx.querySelector(':scope > td.tdPedido')) { nx = null; break; }
+      nx = nx.nextElementSibling;
+    }
+    if(nx && nx.id.startsWith('TR_MSGS')){
+      nx.querySelectorAll('td.tdDataHoraMsg').forEach(td => {
+        const r = td.parentElement;                         // processa cada mensagem só pela própria linha
+        const u = r.querySelector(':scope > td.tdUsuarioMsg');
+        const t = r.querySelector(':scope > td.tdTextoMensagem');
+        if(!t) return;
+        const tc = t.cloneNode(true);
+        tc.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
+        o.msgs.push({ dt: td.textContent.replace(/ /g,' ').trim(),
+          user: u ? u.textContent.replace(/ /g,' ').trim() : '',
+          text: tc.textContent.replace(/ /g,' ').trim() });
+      });
+    }
+    out.push(o);
+  });
+  return out;
+}
+
+// 2) Texto tabulado (colado do Excel ou do navegador)
+function parseTSV(text){
+  const rows = []; let row = [], f = '', q = false, i = 0;
+  text = text.replace(/\r\n?/g, '\n');
+  for(; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if(c === '"' && f === '') q = true;
+    else if(c === '\t'){ row.push(f); f = ''; }
+    else if(c === '\n'){ row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  row.push(f); rows.push(row);
+  return rows;
+}
+function parseOcText(text){
+  const rows = parseTSV(text);
+  const dtRe = /^\s*\d{1,2}\/\d{1,2}\/\d{4}(\s+\d{1,2}:\d{2})?\s*$/;
+  const pedRe = /^\s*\d{4,}[A-Za-z0-9-]*\s*$/;   // ex.: 397426N, 438266N-A
+  const out = []; let cur = null, lastMsg = null;
+  for(const raw of rows){
+    const r = raw.map(x => x.replace(/ /g,' ').trim());
+    if(r.every(x => !x)) continue;
+    if(/^DT Ocorr/i.test(r[0])) continue;
+    // linha de ocorrência: data | loja | pedido | nf | cliente | transp | contato | tel | ocorrência | status
+    if(dtRe.test(r[0]) && r.length >= 9 && pedRe.test(r[2])){
+      const oc = (r[8] || '').split('\n');
+      cur = { dt:r[0], loja:r[1], pedido:r[2], nf:r[3], cliente:r[4], transp:r[5], contato:r[6], tel:r[7],
+        ocorrencia:(oc.shift()||'').trim(), descricao:oc.join('\n').trim(), status:r[9] || '', msgs:[] };
+      cur.key = keyOf(cur); out.push(cur); lastMsg = null; continue;
+    }
+    if(!cur) continue;
+    if(r.some(x => /^MENSAGENS$/i.test(x))) { lastMsg = null; continue; }
+    // mensagem: [vazios] data | usuário | texto
+    const k = r.findIndex(x => x !== '');
+    const rr = r.slice(k);
+    if(dtRe.test(rr[0]) && rr.length >= 2){
+      lastMsg = { dt: rr[0], user: rr[1] || '', text: rr.slice(2).join(' ').trim() };
+      cur.msgs.push(lastMsg); continue;
+    }
+    // continuação de texto de mensagem (quebra de linha sem aspas)
+    if(lastMsg) lastMsg.text += '\n' + rr.join(' ').trim();
+  }
+  return out;
+}
+
+// 3) Detecta o tipo do conteúdo
+function parseOc(content, isHtml){
+  if(isHtml || /<td[^>]+tdPedido/i.test(content)) return parseOcHTML(content);
+  return parseOcText(content);
+}
+
+/* =====================================================================
+   CAMADA DE DADOS (Apps Script ou local)
+   ===================================================================== */
+const Store = {
+  url: () => LS.get('pv_api', ''),
+  pin: () => LS.get('pv_pin', ''),
+  user: () => LS.get('pv_user', ''),
+  online(){ return !!this.url(); },
+  async call(action, payload){
+    const r = await fetch(this.url(), { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(Object.assign({ action, pin:this.pin(), usuario:this.user() }, payload || {})) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'Erro no servidor');
+    return j;
+  },
+  /* --- local --- */
+  L: null,
+  localLoad(){
+    if(!this.L){
+      try{ this.L = JSON.parse(LS.get('pv_local', '')) || null; }catch(e){}
+      if(!this.L) this.L = { oc:[], tipos:{}, td:{}, meta:{} };
+    }
+    return this.L;
+  },
+  localSave(){ if(!LS.set('pv_local', JSON.stringify(this.L))) toast('Aviso: dados grandes demais para salvar neste navegador — use a conexão com o Apps Script.', true); },
+
+  async load(){
+    if(this.online()) return await this.call('load');
+    const L = this.localLoad(); const peds = new Set(L.oc.map(o => o.pedido)); const td = {};
+    let rec = 0, n = 0;
+    for(const p in L.td){ n++; if(L.td[p].recebido) rec++; if(peds.has(p)) td[p] = L.td[p]; }
+    return { ok:true, ocorrencias:L.oc, tipos:L.tipos, td, meta:Object.assign({}, L.meta, { tdTotal:String(n), tdRecebidos:String(rec) }) };
+  },
+  async saveOc(list){
+    if(this.online()) return await this.call('saveOcorrencias', { rows:list });
+    const L = this.localLoad(); const prev = {}; L.oc.forEach(o => prev[o.key] = o);
+    const had = L.oc.length > 0, now = new Date().toISOString();
+    L.oc = list.map(o => Object.assign({}, o, { firstSeen: prev[o.key] ? prev[o.key].firstSeen : (had ? now : '') }));
+    L.meta.ocAtualizado = fmtDate(new Date()) + ' ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
+    this.localSave(); return { ok:true };
+  },
+  async setTipos(items){
+    if(this.online()) return await this.call('setTipos', { items });
+    const L = this.localLoad();
+    items.forEach(it => { if(!it.tipo) delete L.tipos[it.key]; else L.tipos[it.key] = { tipo:it.tipo, por:this.user() || 'local', em:'' }; });
+    this.localSave(); return { ok:true };
+  },
+  async tdUpsert(rows, reset, last, onProgress){
+    let novos = 0, atual = 0;
+    if(this.online()){
+      const CH = 4000;
+      for(let i = 0; i < rows.length || i === 0; i += CH){
+        const isLast = i + CH >= rows.length;
+        const r = await this.call('tdUpsert', { rows: rows.slice(i, i + CH), reset: reset && i === 0, last: isLast });
+        novos += r.novos; atual += r.atualizados;
+        if(onProgress) onProgress(Math.min(i + CH, rows.length), rows.length);
+        if(isLast) break;
+      }
+      return { novos, atualizados: atual };
+    }
+    const L = this.localLoad(); if(reset) L.td = {};
+    rows.forEach(n => {
+      if(!n.pedido) return; const o = L.td[n.pedido];
+      if(!o){ L.td[n.pedido] = Object.assign({}, n); novos++; return; }
+      let ch = false;
+      for(const c in n){ if(c !== 'pedido' && n[c] && o[c] !== n[c]){ o[c] = n[c]; ch = true; } }
+      if(ch) atual++;
+    });
+    L.meta.tdAtualizado = fmtDate(new Date()) + ' ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
+    this.localSave(); return { novos, atualizados: atual };
+  }
+};
+
+/* =====================================================================
+   ESTADO + ENRIQUECIMENTO ("PROCV" com a Tabela Dinâmica)
+   ===================================================================== */
+let S = { oc:[], tipos:{}, td:{}, meta:{} };
+let ROWS = [];             // linhas enriquecidas
+const sel = new Set();     // chaves selecionadas
+let sortK = 'dtUlt', sortDir = -1;
+let tipoChip = null;       // filtro rápido pelos chips
+
+function enrich(){
+  const hoje = todayStr();
+  const now24 = Date.now() - 24*3600*1000;
+  ROWS = S.oc.map(o => {
+    const td = S.td[o.pedido] || {};
+    const last = o.msgs && o.msgs.length ? o.msgs[o.msgs.length-1] : null;
+    const tp = S.tipos[o.key] ? S.tipos[o.key].tipo : '';
+    const rec = td.recebido || '';
+    return Object.assign({}, o, {
+      tipo: tp,
+      loja: o.loja || td.loja || '',
+      vendedor: td.vendedor || '',
+      emRota: td.emRota || '',
+      previsao: td.previsao || '',
+      dtEntrega: rec,
+      entregue: !S.td[o.pedido] ? '' : (rec ? 'Sim' : 'Não'),
+      dtOcorr: o.dt,
+      dtUlt: last ? last.dt : '',
+      autor: last ? last.user : '',
+      msg: last ? last.text : '',
+      isNew: !!o.firstSeen && new Date(o.firstSeen).getTime() > now24,
+      hoje: !!last && last.dt.slice(0,10) === hoje,
+      atrasada: !!td.previsao && !rec && parseDT(td.previsao) < new Date(new Date().setHours(0,0,0,0)).getTime()
+    });
+  });
+}
+
+async function loadAll(){
+  const r = await Store.load();
+  S = { oc: r.ocorrencias || [], tipos: r.tipos || {}, td: r.td || {}, meta: r.meta || {} };
+  enrich(); renderAll();
+}
+
+/* =====================================================================
+   COLUNAS / TABELA
+   ===================================================================== */
+const COLS = [
+  { k:'pedido', t:'Pedido', def:1 },
+  { k:'nf', t:'NF', def:1 },
+  { k:'cliente', t:'Cliente', def:1 },
+  { k:'transp', t:'Transportadora', def:1 },
+  { k:'loja', t:'Loja', def:1 },
+  { k:'vendedor', t:'Vendedor', def:1 },
+  { k:'tipo', t:'Ocorrência', def:1 },
+  { k:'descricao', t:'Descrição', def:0 },
+  { k:'status', t:'Status', def:1 },
+  { k:'emRota', t:'Em Rota', def:1 },
+  { k:'previsao', t:'Previsão', def:1, date:1 },
+  { k:'entregue', t:'Entregue?', def:1 },
+  { k:'dtEntrega', t:'Data Entrega', def:1, date:1 },
+  { k:'dtOcorr', t:'Data Ocorr.', def:0, date:1 },
+  { k:'contato', t:'Contato', def:0 },
+  { k:'tel', t:'Telefone', def:0 },
+  { k:'dtUlt', t:'Data Últ. Msg', def:1, date:1 },
+  { k:'autor', t:'Autor Últ. Msg', def:1 },
+  { k:'msg', t:'Mensagem', def:1 }
+];
+let colsVis = (() => { try{ const v = JSON.parse(LS.get('pv_cols','')); if(v) return v; }catch(e){} const o = {}; COLS.forEach(c => o[c.k] = !!c.def); return o; })();
+const visCols = () => COLS.filter(c => colsVis[c.k]);
+
+function filtered(){
+  const q = norm($('busca').value).trim();
+  const fT = $('fTransp').value, fL = $('fLoja').value, fO = $('fTipo').value, fS = $('fStatus').value, fE = $('fEnt').value;
+  const de = $('fDe').value ? new Date($('fDe').value + 'T00:00').getTime() : 0;
+  const ate = $('fAte').value ? new Date($('fAte').value + 'T23:59:59').getTime() : 0;
+  let rows = ROWS.filter(r => {
+    if(fT && r.transp !== fT) return false;
+    if(fL && r.loja !== fL) return false;
+    if(fO === '__none'){ if(r.tipo) return false; } else if(fO && r.tipo !== fO) return false;
+    if(fS && r.status !== fS) return false;
+    if(fE && r.entregue !== fE) return false;
+    if(tipoChip !== null){ if(tipoChip === '__none' ? r.tipo : r.tipo !== tipoChip) return false; }
+    if(de || ate){ const t = parseDT(r.dtEntrega); if(!t) return false; if(de && t < de) return false; if(ate && t > ate) return false; }
+    if(q){ const hay = norm(COLS.map(c => r[c.k]).join(' ') + ' ' + (r.msgs||[]).map(m => m.text).join(' ')); if(!q.split(/\s+/).every(w => hay.includes(w))) return false; }
+    return true;
+  });
+  const col = COLS.find(c => c.k === sortK) || {};
+  rows.sort((a, b) => {
+    let x = a[sortK], y = b[sortK];
+    if(col.date){ x = parseDT(x); y = parseDT(y); }
+    else if(!isNaN(+x) && !isNaN(+y) && x !== '' && y !== ''){ x = +x; y = +y; }
+    else { x = norm(x); y = norm(y); }
+    return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+  });
+  return rows;
+}
+
+function autorColor(a){ const u = (a||'').toUpperCase(); for(const [n,c] of AUTORES) if(u.startsWith(n)) return c; return ''; }
+
+function renderHead(){
+  const th = ['<th class="nosort"><input type="checkbox" id="chkAll"></th>'];
+  visCols().forEach(c => th.push(`<th data-k="${c.k}">${esc(c.t)}${sortK===c.k ? (sortDir>0?' ▲':' ▼') : ''}</th>`));
+  $('tbl').tHead.innerHTML = '<tr>' + th.join('') + '</tr>';
+  $('chkAll').onclick = e => { filtered().forEach(r => e.target.checked ? sel.add(r.key) : sel.delete(r.key)); renderBody(); renderLote(); };
+  $('tbl').tHead.querySelectorAll('th[data-k]').forEach(h => h.onclick = () => {
+    const k = h.dataset.k; if(sortK === k) sortDir = -sortDir; else { sortK = k; sortDir = 1; }
+    renderHead(); renderBody();
+  });
+}
+
+function cell(c, r){
+  switch(c.k){
+    case 'pedido': return `<td class="num">${esc(r.pedido)}${r.isNew ? '<span class="badge">NEW</span>' : ''}</td>`;
+    case 'tipo': {
+      const t = r.tipo;
+      return `<td class="num"><span class="tp ${tpClass(t)}">${t ? esc(t) : 'definir'}</span><button class="pen" data-pen="${esc(r.key)}" title="Alterar tipo da ocorrência">✏️</button></td>`;
+    }
+    case 'dtEntrega': return `<td class="num ${r.dtEntrega ? 'ent' : ''}">${esc(r.dtEntrega)}</td>`;
+    case 'previsao': return `<td class="num ${r.atrasada ? 'atr' : ''}">${esc(r.previsao)}</td>`;
+    case 'entregue': return `<td class="${r.entregue==='Sim' ? 'ent' : ''}">${esc(r.entregue)}</td>`;
+    case 'autor': { const col = autorColor(r.autor); return `<td style="${col ? 'color:'+col+';font-weight:700' : ''}">${esc(r.autor)}</td>`; }
+    case 'msg': return `<td class="msg" data-msgs="${esc(r.key)}" title="Clique para ver todas as tratativas"><div>${esc(r.msg)}</div></td>`;
+    case 'dtUlt': case 'dtOcorr': return `<td class="num">${esc(r[c.k])}</td>`;
+    default: return `<td>${esc(r[c.k])}</td>`;
+  }
+}
+
+function renderBody(){
+  const rows = filtered();
+  const cols = visCols();
+  const html = rows.map(r => `<tr class="${r.hoje ? 'hoje' : ''}"><td><input type="checkbox" data-sel="${esc(r.key)}" ${sel.has(r.key) ? 'checked' : ''}></td>${cols.map(c => cell(c, r)).join('')}</tr>`).join('');
+  $('tbl').tBodies[0].innerHTML = html || `<tr><td colspan="${cols.length+1}" class="empty">Nenhuma ocorrência. Cole o relatório acima e clique em <b>Processar texto</b>.</td></tr>`;
+  $('cnt').textContent = rows.length + ' registros';
+}
+
+function fillSelect(id, label, values, cur){
+  const el = $(id); const keep = cur !== undefined ? cur : el.value;
+  el.innerHTML = `<option value="">${label} (todos)</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  el.value = values.includes(keep) ? keep : '';
+}
+function renderFilters(){
+  const uniq = k => [...new Set(ROWS.map(r => r[k]).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR',{numeric:true}));
+  fillSelect('fTransp', 'Transportadora', uniq('transp'));
+  fillSelect('fLoja', 'Loja', uniq('loja'));
+  fillSelect('fStatus', 'Status', uniq('status'));
+  const o = $('fTipo'), keep = o.value;
+  o.innerHTML = '<option value="">Ocorrência (todos)</option>' + TIPOS.map(t => `<option>${t}</option>`).join('') + '<option value="__none">Sem tipo</option>';
+  o.value = keep;
+  const e = $('fEnt'), ke = e.value;
+  e.innerHTML = '<option value="">Entregue? (todos)</option><option>Sim</option><option>Não</option>';
+  e.value = ke;
+}
+function renderChips(){
+  const cnt = {}; TIPOS.forEach(t => cnt[t] = 0); let none = 0;
+  ROWS.forEach(r => r.tipo ? cnt[r.tipo]++ : none++);
+  const b = (k, label, n) => `<button data-chip="${k}" class="${tipoChip === k ? 'act' : ''}">${label}<b>${n}</b></button>`;
+  $('tipos').innerHTML = b('', 'Todas', ROWS.length).replace('data-chip=""', 'data-chip="__all"') + TIPOS.map(t => b(t, t, cnt[t])).join('') + b('__none', 'Sem tipo', none);
+  if(tipoChip === null) $('tipos').firstChild.classList.add('act');
+}
+function renderInfo(){
+  const m = S.meta;
+  $('ocInfo').textContent = S.oc.length ? `${S.oc.length} ocorrências · atualizado em ${m.ocAtualizado || '—'}` : '';
+  $('tdInfo').textContent = m.tdTotal && +m.tdTotal ? `${(+m.tdTotal).toLocaleString('pt-BR')} pedidos · ${(+m.tdRecebidos).toLocaleString('pt-BR')} recebidos pelo cliente · atualizado em ${m.tdAtualizado || '—'}` : 'nenhuma importação ainda';
+}
+function renderLote(){
+  $('lote').classList.toggle('show', sel.size > 0);
+  $('loteN').textContent = sel.size;
+}
+function renderAll(){ renderFilters(); renderChips(); renderInfo(); renderHead(); renderBody(); renderLote(); }
+
+/* ---------- menu do lápis / lote ---------- */
+let menuKeys = [];
+function openTipoMenu(btn, keys){
+  menuKeys = keys;
+  const m = $('menuTipo');
+  m.innerHTML = TIPOS.map(t => `<button data-tp="${t}"><span class="tp ${tpClass(t)}">${t}</span></button>`).join('') + '<div class="sep"></div><button data-tp="">Limpar tipo</button>';
+  const b = btn.getBoundingClientRect();
+  m.style.display = 'block';
+  m.style.left = Math.min(b.left, innerWidth - 180) + 'px';
+  m.style.top = Math.min(b.bottom + 4, innerHeight - m.offsetHeight - 10) + 'px';
+}
+async function aplicarTipo(keys, tipo){
+  const byKey = {}; ROWS.forEach(r => byKey[r.key] = r);
+  const items = keys.map(k => ({ key:k, pedido: byKey[k] ? byKey[k].pedido : '', tipo }));
+  items.forEach(it => { if(tipo) S.tipos[it.key] = { tipo, por: Store.user() }; else delete S.tipos[it.key]; });
+  enrich(); renderAll();
+  try{ await Store.setTipos(items); toast(tipo ? `${keys.length} ocorrência(s) → ${tipo}` : 'Tipo removido'); }
+  catch(e){ toast('Não salvou: ' + e.message, true); await loadAll(); }
+}
+
+/* =====================================================================
+   AÇÕES — OCORRÊNCIAS
+   ===================================================================== */
+async function processar(content, isHtml){
+  const list = parseOc(content, isHtml);
+  if(!list.length){ toast('Não encontrei ocorrências nesse texto. Confira se é o Relatório de Ocorrências do SAC.', true); return; }
+  const semMsg = list.filter(o => !o.msgs.length).length;
+  // chaves duplicadas (mesmo pedido+data) — mantém a última
+  const map = new Map(); list.forEach(o => map.set(o.key, o));
+  await Store.saveOc([...map.values()]);
+  await loadAll();
+  const nm = [...map.values()].reduce((a, o) => a + o.msgs.length, 0);
+  toast(`${map.size} ocorrências e ${nm} mensagens processadas` + (semMsg ? ` — ${semMsg} sem mensagens (se esperava mensagens, use "Abrir relatório salvo (.html)")` : ''), semMsg === map.size);
+}
+
+/* =====================================================================
+   TABELA DINÂMICA — importação
+   ===================================================================== */
+function parseDelimited(text){
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0] || '';
+  const d = [['\t', first.split('\t').length], [';', first.split(';').length], [',', first.split(',').length]].sort((a,b) => b[1]-a[1])[0][0];
+  const rows = []; let row = [], f = '', q = false;
+  text = text.replace(/\r\n?/g, '\n');
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){ if(c === '"'){ if(text[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if(c === '"' && f === '') q = true;
+    else if(c === d){ row.push(f); f = ''; }
+    else if(c === '\n'){ row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  row.push(f); rows.push(row);
+  return rows;
+}
+function excelDateToStr(v){
+  if(v instanceof Date && !isNaN(v)) return fmtDate(new Date(v.getTime() + 12*3600*1000)); // evita virada de dia por fuso
+  if(typeof v === 'number' && v > 20000 && v < 80000){ const d = new Date(Math.round((v - 25569) * 86400 * 1000)); return pad(d.getUTCDate())+'/'+pad(d.getUTCMonth()+1)+'/'+d.getUTCFullYear(); }
+  const s = String(v == null ? '' : v).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if(m) return m[3]+'/'+m[2]+'/'+m[1];
+  const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if(m2) return pad(+m2[1])+'/'+pad(+m2[2])+'/'+m2[3];
+  return s;
+}
+function mapTD(matrix){
+  // acha a linha do cabeçalho (primeira que tem "pedido")
+  let h = matrix.findIndex(r => r.some(c => /^\s*(n[ºo°]?\s*)?pedido\s*$/i.test(String(c)) || norm(c) === 'pedido'));
+  if(h < 0) h = matrix.findIndex(r => r.some(c => /pedido/.test(norm(c))));
+  if(h < 0) throw new Error('Não achei a coluna "Pedido" no cabeçalho. Confira se é o arquivo "Dados para Tabela Dinâmica".');
+  const head = matrix[h].map(c => norm(c).replace(/[^a-z0-9]/g, ''));
+  const used = new Set();
+  const find = (...tests) => { for(const t of tests){ const i = head.findIndex((x, j) => !used.has(j) && x && t.test(x)); if(i >= 0){ used.add(i); return i; } } return -1; };
+  const idx = {
+    pedido:         find(/^(n|no)?pedido$/, /^pedido/, /pedido/),
+    previsao:       find(/previsao/),
+    recebido:       find(/^(data)?(recebido|recebimento)/, /datarecebi/, /recebidopelocliente/, /(data)?entregue?aocliente/, /^dataentrega$/, /^entregue$/, /recebi|entreg/),
+    nf:             find(/^(nf|nfe|nnf|nfsaida)$/, /notafiscal/, /^nf/),
+    cliente:        find(/^(nomedo)?cliente$/, /nomecliente/, /^cliente/, /^nome$/),
+    transportadora: find(/^transportadora$/, /^transp/),
+    loja:           find(/^loja$/, /^loja/),
+    vendedor:       find(/^vendedor$/, /^vend/),
+    emRota:         find(/emrota/, /rota/, /saida|expedi/)
+  };
+  const out = [];
+  for(let i = h + 1; i < matrix.length; i++){
+    const r = matrix[i]; const g = k => idx[k] >= 0 ? r[idx[k]] : '';
+    const pedido = String(g('pedido') == null ? '' : g('pedido')).trim();
+    if(!pedido || !/\d/.test(pedido)) continue;
+    const o = { pedido };
+    ['nf','cliente','transportadora','loja','vendedor'].forEach(k => { const v = g(k); o[k] = v == null ? '' : String(v).trim(); });
+    ['previsao','recebido','emRota'].forEach(k => { const v = g(k); o[k] = v === '' || v == null ? '' : excelDateToStr(v); });
+    out.push(o);
+  }
+  const found = Object.keys(idx).filter(k => idx[k] >= 0);
+  return { rows: out, found, header: matrix[h] };
+}
+async function importarTD(matrix){
+  const { rows, found, header } = mapTD(matrix);
+  if(!rows.length) throw new Error('Nenhum pedido encontrado no arquivo.');
+  const msg = $('tdMsg');
+  const r = await Store.tdUpsert(rows, false, true, (a, b) => msg.textContent = `Enviando ${a}/${b}…`);
+  const faltam = ['previsao','recebido','vendedor','loja'].filter(k => !found.includes(k));
+  msg.textContent = `✔ ${rows.length.toLocaleString('pt-BR')} linhas lidas — ${r.novos.toLocaleString('pt-BR')} novos, ${r.atualizados.toLocaleString('pt-BR')} atualizados` + (faltam.length ? ` · não achei coluna: ${faltam.join(', ')}` : '');
+  toast('Tabela Dinâmica importada');
+  await loadAll();
+}
+async function lerArquivoTD(file){
+  const buf = await file.arrayBuffer();
+  if(/\.(xlsx|xls)$/i.test(file.name)){
+    if(!window.XLSX) throw new Error('Biblioteca de Excel não carregou (sem internet?).');
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
+  }
+  return parseDelimited(decodeBuf(buf));
+}
+
+/* =====================================================================
+   EXPORT / CÓPIA
+   ===================================================================== */
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){ const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }
+}
+function targetRows(){ const rows = filtered(); return sel.size ? rows.filter(r => sel.has(r.key)) : rows; }
+function baixarExcel(){
+  if(!window.XLSX){ toast('Biblioteca de Excel não carregou.', true); return; }
+  const cols = visCols(); const rows = targetRows();
+  const data = rows.map(r => { const o = {}; cols.forEach(c => o[c.t] = r[c.k]); return o; });
+  const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ocorrências');
+  XLSX.writeFile(wb, 'ocorrencias_sac_' + todayStr().replace(/\//g,'-') + '.xlsx');
+}
+
+/* =====================================================================
+   LIGAÇÕES DE EVENTOS
+   ===================================================================== */
+$('taOc').value = LS.get('pv_texto', '');
+$('taOc').addEventListener('input', () => LS.set('pv_texto', $('taOc').value));
+
+// colagem rica: se o clipboard tem HTML com a estrutura da Central, usa o HTML (evita misturar colunas)
+$('taOc').addEventListener('paste', e => {
+  const html = e.clipboardData && e.clipboardData.getData('text/html');
+  if(html && /tdPedido/.test(html)){
+    e.preventDefault();
+    const list = parseOcHTML(html);
+    if(list.length){ $('taOc').value = ''; LS.set('pv_texto', ''); withBusy($('bProc'), () => processar(html, true)); }
+  }
+});
+
+$('bProc').onclick = () => withBusy($('bProc'), async () => {
+  const t = $('taOc').value;
+  if(!t.trim()){ toast('Cole o relatório na caixa primeiro.', true); return; }
+  try{ await processar(t, false); }catch(e){ toast('Erro: ' + e.message, true); }
+});
+$('bOpen').onclick = () => $('fOc').click();
+$('fOc').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  withBusy($('bProc'), async () => { try{ const txt = decodeBuf(await f.arrayBuffer()); await processar(txt, /\.html?$/i.test(f.name)); }catch(err){ toast('Erro: ' + err.message, true); } }); };
+$('bSis').onclick = () => withBusy($('bSis'), async () => {
+  if(!Store.online()){ toast('Para buscar do sistema é preciso conectar o Apps Script (⚙ Conexão).', true); return; }
+  try{
+    const r = await Store.call('buscarSistema', {});
+    if(r.html) await processar(r.html, true);
+  }catch(e){ toast(e.message, true); }
+});
+
+['busca','fTransp','fLoja','fTipo','fStatus','fEnt','fDe','fAte'].forEach(id => $(id).addEventListener(id === 'busca' ? 'input' : 'change', renderBody));
+$('bLimpar').onclick = () => { ['busca','fDe','fAte'].forEach(i => $(i).value = ''); ['fTransp','fLoja','fTipo','fStatus','fEnt'].forEach(i => $(i).value = ''); tipoChip = null; renderChips(); renderBody(); };
+$('tipos').onclick = e => { const b = e.target.closest('button'); if(!b) return; const k = b.dataset.chip; tipoChip = k === '__all' ? null : k; renderChips(); renderBody(); };
+
+$('tbl').addEventListener('click', e => {
+  const pen = e.target.closest('[data-pen]'); if(pen){ e.stopPropagation(); openTipoMenu(pen, [pen.dataset.pen]); return; }
+  const m = e.target.closest('[data-msgs]'); if(m){ abrirMsgs(m.dataset.msgs); return; }
+});
+$('tbl').addEventListener('change', e => { const c = e.target.closest('[data-sel]'); if(c){ c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); renderLote(); } });
+$('menuTipo').onclick = e => { const b = e.target.closest('button'); if(!b) return; $('menuTipo').style.display = 'none'; aplicarTipo(menuKeys, b.dataset.tp); };
+document.addEventListener('click', e => { if(!e.target.closest('#menuTipo') && !e.target.closest('[data-pen]')) $('menuTipo').style.display = 'none'; if(!e.target.closest('#menuCols') && e.target.id !== 'bCols') $('menuCols').style.display = 'none'; });
+$('lote').addEventListener('click', e => { const b = e.target.closest('[data-lote]'); if(b){ const keys = [...sel]; aplicarTipo(keys, b.dataset.lote); } });
+$('loteX').onclick = () => { sel.clear(); renderBody(); renderLote(); };
+
+function abrirMsgs(key){
+  const r = ROWS.find(x => x.key === key); if(!r) return;
+  $('mdTitle').textContent = `Pedido ${r.pedido} · ${r.cliente} · ${r.transp}`;
+  const head = r.descricao ? `<div class="m"><span class="who">Ocorrência (${esc(r.ocorrencia)})</span><div class="t">${esc(r.descricao)}</div></div>` : '';
+  $('mdBody').innerHTML = head + (r.msgs.length ? r.msgs.map(m => { const c = autorColor(m.user); return `<div class="m"><span class="who" style="${c ? 'color:'+c : ''}">${esc(m.user)}</span><span class="when">${esc(m.dt)}</span><div class="t">${esc(m.text)}</div></div>`; }).join('') : '<div class="empty">Sem mensagens.</div>');
+  openModal('mdMsg');
+}
+
+$('bCols').onclick = e => {
+  e.stopPropagation(); const m = $('menuCols');
+  m.innerHTML = COLS.map(c => `<label><input type="checkbox" data-col="${c.k}" ${colsVis[c.k] ? 'checked' : ''}> ${esc(c.t)}</label>`).join('');
+  const b = $('bCols').getBoundingClientRect(); m.style.display = 'block';
+  m.style.left = Math.max(8, b.right - m.offsetWidth) + 'px'; m.style.top = (b.bottom + 4) + 'px';
+};
+$('menuCols').addEventListener('change', e => { const k = e.target.dataset.col; colsVis[k] = e.target.checked; LS.set('pv_cols', JSON.stringify(colsVis)); renderHead(); renderBody(); });
+
+$('bCopP').onclick = async () => { const r = targetRows(); await copyText([...new Set(r.map(x => x.pedido))].join('\n')); toast(`${new Set(r.map(x => x.pedido)).size} pedidos copiados`); };
+$('bCopN').onclick = async () => { const r = targetRows(); const n = [...new Set(r.map(x => x.nf).filter(Boolean))]; await copyText(n.join('\n')); toast(`${n.length} NFs copiadas`); };
+$('bXls').onclick = baixarExcel;
+
+// Tabela Dinâmica
+$('bTDfile').onclick = () => $('fTD').click();
+$('fTD').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  withBusy($('bTDfile'), async () => { try{ $('tdMsg').textContent = 'Lendo ' + f.name + '…'; await importarTD(await lerArquivoTD(f)); }catch(err){ $('tdMsg').textContent = ''; toast(err.message, true); } }); };
+$('bTDpaste').onclick = () => withBusy($('bTDpaste'), async () => {
+  const t = $('taTD').value; if(!t.trim()){ toast('Cole as linhas da Tabela Dinâmica primeiro.', true); return; }
+  try{ await importarTD(parseDelimited(t)); $('taTD').value = ''; }catch(err){ toast(err.message, true); }
+});
+
+/* ---------- conexão / login ---------- */
+function refreshChips(){
+  $('modo').textContent = Store.online() ? 'online (Google Sheets)' : 'modo local';
+  $('modo').classList.toggle('on', Store.online());
+  $('quem').textContent = Store.user() ? '👤 ' + Store.user() : '';
+  $('quem').style.display = Store.user() ? '' : 'none';
+}
+$('bCfg').onclick = () => { $('cfgUrl').value = Store.url(); openModal('mdCfg'); };
+$('cfgSave').onclick = () => { LS.set('pv_api', $('cfgUrl').value.trim()); closeModal('mdCfg'); LS.del('pv_pin'); start(); };
+$('cfgSair').onclick = () => { LS.del('pv_pin'); LS.del('pv_user'); closeModal('mdCfg'); start(); };
+$('lgOk').onclick = () => withBusy($('lgOk'), async () => {
+  const u = $('lgUser').value.trim(), p = $('lgPin').value.trim();
+  if(!u || !p){ $('lgErr').textContent = 'Informe nome e PIN.'; return; }
+  LS.set('pv_user', u); LS.set('pv_pin', p);
+  try{ await Store.call('ping'); $('login').style.display = 'none'; $('lgErr').textContent = ''; await start(); }
+  catch(e){ LS.del('pv_pin'); $('lgErr').textContent = e.message === 'Failed to fetch' ? 'Não consegui falar com o Apps Script (confira a URL e a implantação).' : e.message; }
+});
+$('lgPin').addEventListener('keydown', e => { if(e.key === 'Enter') $('lgOk').click(); });
+
+async function start(){
+  refreshChips();
+  if(Store.online() && !Store.pin()){ $('lgUser').value = Store.user(); $('login').style.display = 'flex'; return; }
+  try{ await loadAll(); }
+  catch(e){ toast('Erro ao carregar: ' + e.message, true); if(/PIN/i.test(e.message)){ LS.del('pv_pin'); start(); } }
+}
+renderAll();
+start();
+</script>
+</body>
+</html>
