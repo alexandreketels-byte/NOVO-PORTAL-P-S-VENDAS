@@ -120,6 +120,7 @@ td.num{white-space:nowrap}
     <textarea id="taTD" placeholder="…ou cole aqui as linhas da Tabela Dinâmica (com o cabeçalho)" style="height:70px"></textarea>
     <div class="row">
       <button class="btn" id="bTDfile"><span class="spin"></span>📁 Escolher arquivo</button>
+      <button class="btn" id="bTDsis"><span class="spin"></span>🔄 Buscar do sistema</button>
       <button class="btn" id="bTDpaste"><span class="spin"></span>Importar texto colado</button>
       <span class="lbl" id="tdMsg"></span>
     </div>
@@ -196,7 +197,6 @@ td.num{white-space:nowrap}
 
 <div id="login"><div class="box">
   <h2>Portal Pós-Vendas</h2>
-  <div class="field"><label class="lbl">Seu nome</label><input type="text" id="lgUser" placeholder="ex.: KETELS"></div>
   <div class="field"><label class="lbl">PIN</label><input type="password" id="lgPin" inputmode="numeric"></div>
   <button class="btn" id="lgOk" style="width:100%;justify-content:center"><span class="spin"></span>Entrar</button>
   <p class="hint" id="lgErr" style="color:var(--bad);margin-top:10px"></p>
@@ -258,6 +258,13 @@ function decodeBuf(buf){
    ===================================================================== */
 const keyOf = o => o.pedido + '|' + o.dt;
 
+// texto de uma célula: só <br> vira quebra de linha (as quebras do código-fonte do HTML não contam)
+function cellText(el){
+  const d = document.createElement('div');
+  d.innerHTML = el.innerHTML.replace(/[\r\n]+/g, ' ').replace(/<br\s*\/?>/gi, '\n');
+  return d.textContent.replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 // 1) HTML da página (arquivo salvo ou colagem rica)
 function parseOcHTML(html){
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -272,9 +279,7 @@ function parseOcHTML(html){
     let cat = '', desc = '';
     const eo = tr.querySelector(':scope > td.tdOcorrencia');
     if(eo){
-      const clone = eo.cloneNode(true);
-      clone.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
-      const parts = clone.textContent.replace(/ /g,' ').split('\n');
+      const parts = cellText(eo).split('\n');
       cat = (parts.shift() || '').trim(); desc = parts.join('\n').trim();
     }
     const o = { dt:g('tdDataHora'), loja:g('tdLoja'), pedido, nf:g('tdNF'), cliente:g('tdCliente'),
@@ -293,11 +298,9 @@ function parseOcHTML(html){
         const u = r.querySelector(':scope > td.tdUsuarioMsg');
         const t = r.querySelector(':scope > td.tdTextoMensagem');
         if(!t) return;
-        const tc = t.cloneNode(true);
-        tc.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
-        o.msgs.push({ dt: td.textContent.replace(/ /g,' ').trim(),
-          user: u ? u.textContent.replace(/ /g,' ').trim() : '',
-          text: tc.textContent.replace(/ /g,' ').trim() });
+        o.msgs.push({ dt: td.textContent.replace(/\u00a0/g,' ').trim(),
+          user: u ? u.textContent.replace(/\u00a0/g,' ').trim() : '',
+          text: cellText(t) });
       });
     }
     out.push(o);
@@ -369,9 +372,9 @@ const Store = {
   online(){ return !!this.url(); },
   async call(action, payload){
     const r = await fetch(this.url(), { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify(Object.assign({ action, pin:this.pin(), usuario:this.user() }, payload || {})) });
+      body: JSON.stringify(Object.assign({ action, pin:this.pin() }, payload || {})) });
     const j = await r.json();
-    if(!j.ok) throw new Error(j.error || 'Erro no servidor');
+    if(!j.ok) throw new Error(j.error || j.erro || 'Erro no servidor');
     return j;
   },
   /* --- local --- */
@@ -406,25 +409,28 @@ const Store = {
     items.forEach(it => { if(!it.tipo) delete L.tipos[it.key]; else L.tipos[it.key] = { tipo:it.tipo, por:this.user() || 'local', em:'' }; });
     this.localSave(); return { ok:true };
   },
-  async tdUpsert(rows, reset, last, onProgress){
+  /* rows = linhas de TAB_HEADERS (mesma ordem da planilha do Indicadores) */
+  async tdUpsert(rows, onProgress){
     let novos = 0, atual = 0;
     if(this.online()){
-      const CH = 4000;
-      for(let i = 0; i < rows.length || i === 0; i += CH){
+      const CH = 1000;
+      for(let i = 0, b = 0; i < rows.length; i += CH, b++){
         const isLast = i + CH >= rows.length;
-        const r = await this.call('tdUpsert', { rows: rows.slice(i, i + CH), reset: reset && i === 0, last: isLast });
+        const r = await this.call('importTabDinamica', { rows: rows.slice(i, i + CH), batchIndex: b, isLast });
         novos += r.novos; atual += r.atualizados;
         if(onProgress) onProgress(Math.min(i + CH, rows.length), rows.length);
-        if(isLast) break;
       }
+      await this.call('reconstruirTabDinamicaLookup');
       return { novos, atualizados: atual };
     }
-    const L = this.localLoad(); if(reset) L.td = {};
-    rows.forEach(n => {
-      if(!n.pedido) return; const o = L.td[n.pedido];
-      if(!o){ L.td[n.pedido] = Object.assign({}, n); novos++; return; }
+    const L = this.localLoad();
+    rows.forEach(r => {
+      const ped = String(r[TC.pedido] || '').trim(); if(!ped) return;
+      const n = { statusEntrega: r[TC.status] || '', previsao: r[TC.prev] || '', recebido: r[TC.rec] || '', loja: r[TC.loja] || '', vendedor: r[TC.vend] || '', transportadora: r[TC.transp] || '' };
+      const o = L.td[ped];
+      if(!o){ L.td[ped] = n; novos++; return; }
       let ch = false;
-      for(const c in n){ if(c !== 'pedido' && n[c] && o[c] !== n[c]){ o[c] = n[c]; ch = true; } }
+      for(const c in n){ if(n[c] && o[c] !== n[c] && ['statusEntrega','previsao','recebido'].includes(c)){ o[c] = n[c]; ch = true; } }
       if(ch) atual++;
     });
     L.meta.tdAtualizado = fmtDate(new Date()) + ' ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
@@ -453,7 +459,7 @@ function enrich(){
       tipo: tp,
       loja: o.loja || td.loja || '',
       vendedor: td.vendedor || '',
-      emRota: td.emRota || '',
+      statusEntrega: td.statusEntrega || '',
       previsao: td.previsao || '',
       dtEntrega: rec,
       entregue: !S.td[o.pedido] ? '' : (rec ? 'Sim' : 'Não'),
@@ -487,7 +493,7 @@ const COLS = [
   { k:'tipo', t:'Ocorrência', def:1 },
   { k:'descricao', t:'Descrição', def:0 },
   { k:'status', t:'Status', def:1 },
-  { k:'emRota', t:'Em Rota', def:1 },
+  { k:'statusEntrega', t:'Status Entrega', def:0 },
   { k:'previsao', t:'Previsão', def:1, date:1 },
   { k:'entregue', t:'Entregue?', def:1 },
   { k:'dtEntrega', t:'Data Entrega', def:1, date:1 },
@@ -664,45 +670,52 @@ function excelDateToStr(v){
   const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if(m2) return pad(+m2[1])+'/'+pad(+m2[2])+'/'+m2[3];
   return s;
 }
+// Cabeçalhos da Tabela Dinâmica ("Dados para Tabela Dinâmica") — mesma ordem da planilha do Indicadores
+const TAB_HEADERS = ['Data (Cadastro)','Status Entrega','NF','Emissao NF','NF Remessa','Emissao NF Remessa','Loja','Pedido','Pedido Marketplace','Origem Pedido (Grupo)','CPF/CNPJ','Contrib ICMS',
+  'Nome Cliente','Endereço (cadastro)','Número do endereço (cadastro)','Complemento do endereço (cadastro)','Bairro (cadastro)','CEP (cadastro)','Cidade (cadastro)','UF (cadastro)',
+  'Endereço (entrega)','Número do endereço (entrega)','Complemento do endereço (entrega)','Bairro (entrega)','CEP (entrega)','Cidade (entrega)','UF (entrega)','Telefone 1','Telefone 2','Telefone 3','Email',
+  'Vendedor','Indicador','Transportadora','Entrega Imediata','Previsao Entrega','Data de Entrega','Previsão de Entrega (Transp)','Receb Cliente','CPF/CNPJ Ind','Endereco Ind','Cidade Ind','UF Ind',
+  'Email Ind 1','Email Ind 2','Email Ind 3','Cubagem','Peso','Volumes','VL Frete','VL Custo Total (Real)','VL Total NF','VL Total','VL RA','RT','Qtde Parcelas','Meio de Pagamento','VL Pago Cartão (Internet)'];
+const TC = { status:1, loja:6, pedido:7, vend:31, transp:33, prev:37, rec:38 };
+// dado pessoal que nenhum indicador usa: sai em branco ANTES de enviar (o servidor também esvazia)
+const TAB_PESSOAIS = ['CPF/CNPJ','Endereço (cadastro)','Número do endereço (cadastro)','Complemento do endereço (cadastro)','Bairro (cadastro)','CEP (cadastro)','Endereço (entrega)','Número do endereço (entrega)',
+  'Complemento do endereço (entrega)','Bairro (entrega)','CEP (entrega)','Telefone 1','Telefone 2','Telefone 3','Email','CPF/CNPJ Ind','Endereco Ind','Email Ind 1','Email Ind 2','Email Ind 3'].map(n => TAB_HEADERS.indexOf(n));
+const TAB_DATAS = ['Data (Cadastro)','Emissao NF','Emissao NF Remessa','Previsao Entrega','Data de Entrega','Previsão de Entrega (Transp)','Receb Cliente'].map(n => TAB_HEADERS.indexOf(n));
+const nk = v => norm(v).replace(/[^a-z0-9]/g, '');
+
 function mapTD(matrix){
-  // acha a linha do cabeçalho (primeira que tem "pedido")
-  let h = matrix.findIndex(r => r.some(c => /^\s*(n[ºo°]?\s*)?pedido\s*$/i.test(String(c)) || norm(c) === 'pedido'));
-  if(h < 0) h = matrix.findIndex(r => r.some(c => /pedido/.test(norm(c))));
-  if(h < 0) throw new Error('Não achei a coluna "Pedido" no cabeçalho. Confira se é o arquivo "Dados para Tabela Dinâmica".');
-  const head = matrix[h].map(c => norm(c).replace(/[^a-z0-9]/g, ''));
-  const used = new Set();
-  const find = (...tests) => { for(const t of tests){ const i = head.findIndex((x, j) => !used.has(j) && x && t.test(x)); if(i >= 0){ used.add(i); return i; } } return -1; };
-  const idx = {
-    pedido:         find(/^(n|no)?pedido$/, /^pedido/, /pedido/),
-    previsao:       find(/previsao/),
-    recebido:       find(/^(data)?(recebido|recebimento)/, /datarecebi/, /recebidopelocliente/, /(data)?entregue?aocliente/, /^dataentrega$/, /^entregue$/, /recebi|entreg/),
-    nf:             find(/^(nf|nfe|nnf|nfsaida)$/, /notafiscal/, /^nf/),
-    cliente:        find(/^(nomedo)?cliente$/, /nomecliente/, /^cliente/, /^nome$/),
-    transportadora: find(/^transportadora$/, /^transp/),
-    loja:           find(/^loja$/, /^loja/),
-    vendedor:       find(/^vendedor$/, /^vend/),
-    emRota:         find(/emrota/, /rota/, /saida|expedi/)
-  };
+  // acha a linha do cabeçalho: a que tem "Pedido" e mais colunas conhecidas
+  const known = TAB_HEADERS.map(nk);
+  let h = -1, best = 0;
+  matrix.slice(0, 15).forEach((r, i) => { const n = r.filter(c => known.includes(nk(c))).length; if(n > best){ best = n; h = i; } });
+  if(h < 0 || !matrix[h].some(c => nk(c) === 'pedido')) throw new Error('Não achei o cabeçalho da Tabela Dinâmica (coluna "Pedido"). Confira se é o arquivo "Dados para Tabela Dinâmica".');
+  const pos = TAB_HEADERS.map(t => matrix[h].findIndex(c => nk(c) === nk(t)));
   const out = [];
   for(let i = h + 1; i < matrix.length; i++){
-    const r = matrix[i]; const g = k => idx[k] >= 0 ? r[idx[k]] : '';
-    const pedido = String(g('pedido') == null ? '' : g('pedido')).trim();
-    if(!pedido || !/\d/.test(pedido)) continue;
-    const o = { pedido };
-    ['nf','cliente','transportadora','loja','vendedor'].forEach(k => { const v = g(k); o[k] = v == null ? '' : String(v).trim(); });
-    ['previsao','recebido','emRota'].forEach(k => { const v = g(k); o[k] = v === '' || v == null ? '' : excelDateToStr(v); });
-    out.push(o);
+    const r = matrix[i];
+    const row = TAB_HEADERS.map((t, k) => {
+      if(pos[k] < 0 || TAB_PESSOAIS.includes(k)) return '';
+      const v = r[pos[k]];
+      if(v == null || v === '') return '';
+      if(v instanceof Date || (typeof v === 'number' && TAB_DATAS.includes(k))) return excelDateToStr(v);
+      return String(v).trim();
+    });
+    if(!/\d/.test(row[TC.pedido])) continue;
+    out.push(row);
   }
-  const found = Object.keys(idx).filter(k => idx[k] >= 0);
-  return { rows: out, found, header: matrix[h] };
+  const faltam = TAB_HEADERS.filter((t, k) => pos[k] < 0 && !TAB_PESSOAIS.includes(k));
+  return { rows: out, faltam };
 }
 async function importarTD(matrix){
-  const { rows, found, header } = mapTD(matrix);
+  const { rows, faltam } = mapTD(matrix);
   if(!rows.length) throw new Error('Nenhum pedido encontrado no arquivo.');
+  await enviarTD(rows, faltam);
+}
+async function enviarTD(rows, faltam){
   const msg = $('tdMsg');
-  const r = await Store.tdUpsert(rows, false, true, (a, b) => msg.textContent = `Enviando ${a}/${b}…`);
-  const faltam = ['previsao','recebido','vendedor','loja'].filter(k => !found.includes(k));
-  msg.textContent = `✔ ${rows.length.toLocaleString('pt-BR')} linhas lidas — ${r.novos.toLocaleString('pt-BR')} novos, ${r.atualizados.toLocaleString('pt-BR')} atualizados` + (faltam.length ? ` · não achei coluna: ${faltam.join(', ')}` : '');
+  const r = await Store.tdUpsert(rows, (a, b) => msg.textContent = `Enviando ${a}/${b}…`);
+  const importantes = (faltam || []).filter(n => ['Vendedor','Loja','Previsão de Entrega (Transp)','Receb Cliente'].includes(n));
+  msg.textContent = `✔ ${rows.length.toLocaleString('pt-BR')} linhas lidas — ${r.novos.toLocaleString('pt-BR')} novos, ${r.atualizados.toLocaleString('pt-BR')} atualizados` + (importantes.length ? ` · não achei a coluna: ${importantes.join(', ')}` : '');
   toast('Tabela Dinâmica importada');
   await loadAll();
 }
@@ -761,8 +774,10 @@ $('fOc').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(
 $('bSis').onclick = () => withBusy($('bSis'), async () => {
   if(!Store.online()){ toast('Para buscar do sistema é preciso conectar o Apps Script (⚙ Conexão).', true); return; }
   try{
-    const r = await Store.call('buscarSistema', {});
-    if(r.html) await processar(r.html, true);
+    toast('Buscando no sistema… pode levar 1 a 2 minutos.');
+    const r = await Store.call('buscarOcorrenciasSac', {});
+    await loadAll();
+    toast(`${r.total} ocorrências e ${r.mensagens} mensagens trazidas do sistema`);
   }catch(e){ toast(e.message, true); }
 });
 
@@ -804,6 +819,14 @@ $('bXls').onclick = baixarExcel;
 $('bTDfile').onclick = () => $('fTD').click();
 $('fTD').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
   withBusy($('bTDfile'), async () => { try{ $('tdMsg').textContent = 'Lendo ' + f.name + '…'; await importarTD(await lerArquivoTD(f)); }catch(err){ $('tdMsg').textContent = ''; toast(err.message, true); } }); };
+$('bTDsis').onclick = () => withBusy($('bTDsis'), async () => {
+  if(!Store.online()){ toast('Para buscar do sistema é preciso conectar o Apps Script (⚙ Conexão).', true); return; }
+  try{
+    $('tdMsg').textContent = 'Buscando a Tabela Dinâmica no sistema… pode levar alguns minutos.';
+    const r = await Store.call('buscarTabDinamica', {});
+    await enviarTD(r.rows, []);
+  }catch(e){ $('tdMsg').textContent = ''; toast(e.message, true); }
+});
 $('bTDpaste').onclick = () => withBusy($('bTDpaste'), async () => {
   const t = $('taTD').value; if(!t.trim()){ toast('Cole as linhas da Tabela Dinâmica primeiro.', true); return; }
   try{ await importarTD(parseDelimited(t)); $('taTD').value = ''; }catch(err){ toast(err.message, true); }
@@ -820,17 +843,17 @@ $('bCfg').onclick = () => { $('cfgUrl').value = Store.url(); openModal('mdCfg');
 $('cfgSave').onclick = () => { LS.set('pv_api', $('cfgUrl').value.trim()); closeModal('mdCfg'); LS.del('pv_pin'); start(); };
 $('cfgSair').onclick = () => { LS.del('pv_pin'); LS.del('pv_user'); closeModal('mdCfg'); start(); };
 $('lgOk').onclick = () => withBusy($('lgOk'), async () => {
-  const u = $('lgUser').value.trim(), p = $('lgPin').value.trim();
-  if(!u || !p){ $('lgErr').textContent = 'Informe nome e PIN.'; return; }
-  LS.set('pv_user', u); LS.set('pv_pin', p);
-  try{ await Store.call('ping'); $('login').style.display = 'none'; $('lgErr').textContent = ''; await start(); }
+  const p = $('lgPin').value.trim();
+  if(!p){ $('lgErr').textContent = 'Informe o PIN.'; return; }
+  LS.set('pv_pin', p);
+  try{ const r = await Store.call('login'); LS.set('pv_user', r.nome || ''); $('login').style.display = 'none'; $('lgErr').textContent = ''; $('lgPin').value = ''; await start(); }
   catch(e){ LS.del('pv_pin'); $('lgErr').textContent = e.message === 'Failed to fetch' ? 'Não consegui falar com o Apps Script (confira a URL e a implantação).' : e.message; }
 });
 $('lgPin').addEventListener('keydown', e => { if(e.key === 'Enter') $('lgOk').click(); });
 
 async function start(){
   refreshChips();
-  if(Store.online() && !Store.pin()){ $('lgUser').value = Store.user(); $('login').style.display = 'flex'; return; }
+  if(Store.online() && !Store.pin()){ $('login').style.display = 'flex'; return; }
   try{ await loadAll(); }
   catch(e){ toast('Erro ao carregar: ' + e.message, true); if(/PIN/i.test(e.message)){ LS.del('pv_pin'); start(); } }
 }
