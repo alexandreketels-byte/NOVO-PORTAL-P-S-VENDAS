@@ -212,6 +212,9 @@ td.num{white-space:nowrap}
    é compartilhado com os outros portais).
    ===================================================================== */
 'use strict';
+/* >>> COLE AQUI a URL do Apps Script (termina em /exec). Com ela preenchida, todo mundo que abrir o site já usa o mesmo backend. <<< */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxvllkjVKAllOYJUwN5bwIJ8ah-2UZGfJd4F72iEqQEPAIMc4SdZAz1icdmWm5BN7kh/exec';
+
 const $ = id => document.getElementById(id);
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : v; }catch(e){ return d; } },
@@ -360,7 +363,7 @@ function parseOc(content, isHtml){
    CAMADA DE DADOS (Apps Script ou local)
    ===================================================================== */
 const Store = {
-  url: () => LS.get('pv_api', ''),
+  url: () => LS.get('pv_api', '') || API_URL,
   pin: () => LS.get('pv_pin', ''),
   user: () => LS.get('pv_user', ''),
   online(){ return !!this.url(); },
